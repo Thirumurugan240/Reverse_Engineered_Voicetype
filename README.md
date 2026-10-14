@@ -60,3 +60,6 @@ These are the parts of a dictation tool like Wispr Flow, as seen by analyzing th
 | Local data | SQLite + migrations (history, dictionary, notes) | SQLite history |
 
 VoiceType contains no code, assets or API access from Wispr Flow. It is an independent project and is not affiliated with Wispr.
+
+## License
+[MIT](LICENSE)
