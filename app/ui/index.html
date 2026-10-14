@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VoiceType</title>
+<style>
+:root {
+  --bg: #f7f6f3; --panel: #ffffff; --sidebar: #efede8; --line: #e4e1da;
+  --text: #1c1b19; --muted: #6f6b63; --faint: #a29d93;
+  --accent: #6d5ce8; --accent-soft: #ece9fd; --accent-text: #4b3cc4;
+  --rec: #e5484d; --ok: #2f9e5b; --warn: #c27a12;
+  --shadow: 0 1px 2px rgba(20,18,14,.05), 0 4px 16px rgba(20,18,14,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #18171a; --panel: #212024; --sidebar: #141316; --line: #2e2c31;
+    --text: #eceaf0; --muted: #a09ca8; --faint: #6f6b76;
+    --accent: #8b7cf6; --accent-soft: #2a2546; --accent-text: #b9afff;
+    --shadow: 0 1px 2px rgba(0,0,0,.3);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px; color: var(--text); background: var(--bg);
+  display: grid; grid-template-columns: 228px 1fr; overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+.selectable { -webkit-user-select: text; user-select: text; }
+
+/* sidebar */
+aside { background: var(--sidebar); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; padding: 20px 12px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 22px; }
+.brand img { width: 30px; height: 30px; }
+.brand b { font-size: 17px; letter-spacing: -.2px; }
+nav a { display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 9px;
+  color: var(--muted); text-decoration: none; font-weight: 500; cursor: pointer; margin-bottom: 2px; }
+nav a svg { width: 18px; height: 18px; flex: none; }
+nav a:hover { background: rgba(127,120,110,.10); color: var(--text); }
+nav a.active { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+.side-bottom { margin-top: auto; }
+.status-chip { display: flex; align-items: center; gap: 9px; padding: 11px 12px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.dot.ready { background: var(--ok); }
+.dot.loading, .dot.transcribing { background: var(--warn); animation: pulse 1s infinite; }
+.dot.recording { background: var(--rec); animation: pulse .6s infinite; }
+.dot.error { background: var(--rec); }
+@keyframes pulse { 50% { opacity: .35; } }
+
+/* main */
+main { overflow-y: auto; padding: 34px 44px 48px; }
+.page { display: none; max-width: 860px; margin: 0 auto; }
+.page.active { display: block; }
+h1 { font-size: 26px; font-weight: 650; letter-spacing: -.5px; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0 0 26px; }
+h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--faint); margin: 30px 0 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: var(--shadow); }
+
+/* hero */
+.hero { padding: 22px 24px; display: flex; align-items: center; gap: 20px;
+  background: linear-gradient(120deg, var(--accent-soft), var(--panel) 70%); }
+.hero .txt { flex: 1; }
+.hero .txt b { font-size: 16px; display: block; margin-bottom: 4px; }
+.hero .txt span { color: var(--muted); }
+kbd { display: inline-block; font-family: inherit; font-size: 12px; font-weight: 600;
+  padding: 3px 8px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line);
+  border-bottom-width: 2px; color: var(--text); margin: 0 1px; }
+.mic-btn { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--accent); color: #fff; display: grid; place-items: center; flex: none;
+  box-shadow: 0 6px 18px rgba(109,92,232,.35); transition: transform .12s, background .2s; }
+.mic-btn:hover { transform: scale(1.05); }
+.mic-btn.recording { background: var(--rec); box-shadow: 0 6px 18px rgba(229,72,77,.4); animation: ring 1.2s infinite; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(229,72,77,.45); } 100% { box-shadow: 0 0 0 16px rgba(229,72,77,0); } }
+.mic-btn svg { width: 24px; height: 24px; }
+
+/* stats */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 14px; }
+.stat { padding: 16px 18px; }
+.stat .v { font-size: 24px; font-weight: 650; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.stat .l { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+
+/* history */
+.toolbar { display: flex; gap: 10px; align-items: center; margin: 30px 0 12px; }
+.toolbar h2 { margin: 0; flex: 1; }
+input[type=text], input[type=search], select {
+  font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 9px; padding: 8px 11px; outline: none; }
+input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search { width: 240px; }
+.day { font-size: 12px; font-weight: 600; color: var(--faint); margin: 18px 4px 6px; }
+.item { display: grid; grid-template-columns: 64px 1fr auto; gap: 14px; padding: 13px 16px;
+  border-bottom: 1px solid var(--line); align-items: start; }
+.item:last-child { border-bottom: none; }
+.item .time { color: var(--faint); font-size: 12.5px; padding-top: 1px; font-variant-numeric: tabular-nums; }
+.item .text { line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.item .meta { color: var(--faint); font-size: 12px; margin-top: 4px; }
+.item .actions { display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+.item:hover .actions { opacity: 1; }
+.icon-btn { border: none; background: transparent; color: var(--muted); cursor: pointer;
+  width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center; }
+.icon-btn:hover { background: rgba(127,120,110,.12); color: var(--text); }
+.icon-btn svg { width: 16px; height: 16px; }
+.empty { padding: 44px 20px; text-align: center; color: var(--muted); }
+.flash { animation: flash 1.4s ease-out; }
+@keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
+
+/* dictionary */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px;
+  background: var(--accent-soft); color: var(--accent-text); border-radius: 99px; font-weight: 500; }
+.chip button { border: none; background: none; color: inherit; cursor: pointer; opacity: .6;
+  font-size: 15px; line-height: 1; padding: 0 2px; }
+.chip button:hover { opacity: 1; }
+.add-row { display: flex; gap: 8px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.add-row input { flex: 1; }
+.btn { font: inherit; font-weight: 600; border: none; border-radius: 9px; padding: 8px 16px;
+  cursor: pointer; background: var(--accent); color: #fff; }
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.btn.danger { background: transparent; color: var(--rec); border: 1px solid var(--line); }
+table { width: 100%; border-collapse: collapse; }
+td, th { padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; color: var(--faint); font-weight: 600; }
+td.arrow { color: var(--faint); width: 30px; }
+td code { font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px;
+  background: var(--bg); padding: 2px 6px; border-radius: 5px; }
+
+/* settings */
+.row { display: flex; align-items: center; gap: 20px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: none; }
+.row .lbl { flex: 1; }
+.row .lbl b { display: block; font-weight: 600; }
+.row .lbl span { color: var(--muted); font-size: 12.5px; }
+.row select, .row input[type=text] { min-width: 240px; }
+.switch { position: relative; width: 40px; height: 23px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch i { position: absolute; inset: 0; background: var(--line); border-radius: 99px; cursor: pointer; transition: .2s; }
+.switch i::after { content: ""; position: absolute; width: 17px; height: 17px; left: 3px; top: 3px;
+  background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { transform: translateX(17px); }
+.hotkey-input { display: flex; gap: 8px; align-items: center; }
+.hotkey-input .keys { min-width: 150px; text-align: right; }
+.capture { outline: 2px solid var(--accent); }
+
+.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 9px; font-weight: 500;
+  opacity: 0; transition: .2s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="brand"><img src="icon.png" alt=""><b>VoiceType</b></div>
+  <nav>
+    <a data-page="home" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+    <a data-page="dictionary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Dictionary</a>
+    <a data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+  </nav>
+  <div class="side-bottom">
+    <div class="status-chip"><span class="dot" id="dot"></span><span id="status">Starting…</span></div>
+  </div>
+</aside>
+
+<main>
+  <!-- HOME -->
+  <section class="page active" id="page-home">
+    <h1 id="greeting">Welcome back</h1>
+    <p class="sub">Dictate into any app. Everything runs privately on this PC.</p>
+
+    <div class="card hero">
+      <div class="txt">
+        <b>Hold <span id="hk-hint"></span> and start speaking</b>
+        <span>Release to type. Or press <span id="tg-hint"></span> for hands-free, or click the mic.</span>
+      </div>
+      <button class="mic-btn" id="mic" title="Start / stop dictation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg>
+      </button>
+    </div>
+
+    <div class="stats">
+      <div class="card stat"><div class="v" id="s-week">0</div><div class="l">Words this week</div></div>
+      <div class="card stat"><div class="v" id="s-wpm">0</div><div class="l">Avg. words / min</div></div>
+      <div class="card stat"><div class="v" id="s-streak">0</div><div class="l">Day streak</div></div>
+      <div class="card stat"><div class="v" id="s-saved">0m</div><div class="l">Time saved vs typing</div></div>
+    </div>
+
+    <div class="toolbar">
+      <h2>History</h2>
+      <input type="search" class="search" id="search" placeholder="Search transcripts…">
+    </div>
+    <div id="history"></div>
+  </section>
+
+  <!-- DICTIONARY -->
+  <section class="page" id="page-dictionary">
+    <h1>Dictionary</h1>
+    <p class="sub">Teach VoiceType names, jargon and shortcuts.</p>
+
+    <h2>Vocabulary</h2>
+    <div class="card">
+      <div class="chips" id="vocab"></div>
+      <div class="add-row">
+        <input type="text" id="vocab-in" placeholder="Add a word or name, e.g. Kubernetes, Thiru, SocialEagle">
+        <button class="btn" id="vocab-add">Add</button>
+      </div>
+    </div>
+
+    <h2>Replacements</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>When you say</th><th></th><th>Type</th><th></th></tr></thead>
+        <tbody id="repl"></tbody>
+      </table>
+      <div class="add-row">
+        <input type="text" id="repl-from" placeholder="When you say… (e.g. my email)">
+        <input type="text" id="repl-to" placeholder="Type… (use \n for a new line)">
+        <button class="btn" id="repl-add">Add</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="page" id="page-settings">
+    <h1>Settings</h1>
+    <p class="sub">Changes are saved automatically.</p>
+
+    <h2>Shortcuts</h2>
+    <div class="card">
+      <div class="row">
+        <div class="lbl"><b>Push-to-talk</b><span>Hold these keys while speaking.</span></div>
+        <div class="hotkey-input"><span class="keys" id="hk-keys"></span>
+          <button class="btn ghost" data-capture="hotkey">Change</button></div>
+      </div>
+      <div class="row">
+        <div class="lbl"><b>Hands-free toggle</b><span>Press once to start, again to stop.</span></div>
+        <div class="hotkey-input"><span class="keys" id="tg-keys"></span>
+          <button class="btn ghost" data-capture="toggle_hotkey">Change</button></div>
+      </div>
+    </div>
+
+    <h2>Microphone</h2>
+    <div class="card">
+      <div class="row">
+        <div class="lbl"><b>Input device</b><span>Which microphone to record from.</span></div>
+        <select id="mic-select"></select>
+      </div>
+    </div>
+
+    <h2>Transcription</h2>
+    <div class="card">
+      <div class="row">
+        <div class="lbl"><b>Model</b><span>Bigger is more accurate but slower. Downloads on first use.</span></div>
+        <select data-cfg="model">
+          <option value="tiny">Tiny – fastest (75 MB)</option>
+          <option value="base">Base – fast (145 MB)</option>
+          <option value="small">Small – balanced (480 MB)</option>
+          <option value="medium">Medium – accurate (1.5 GB)</option>
+          <option value="distil-large-v3">Distil Large v3 – accurate, English (1.5 GB)</option>
+          <option value="large-v3-turbo">Large v3 Turbo – best (1.6 GB)</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="lbl"><b>Language</b><span>Auto-detect works for most cases.</span></div>
+        <select data-cfg="language">
+          <option value="">Auto-detect</option>
+          <option value="en">English</option><option value="ta">Tamil</option>
+          <option value="hi">Hindi</option><option value="te">Telugu</option>
+          <option value="ml">Malayalam</option><option value="kn">Kannada</option>
+          <option value="es">Spanish</option><option value="fr">French</option>
+          <option value="de">German</option><option value="ar">Arabic</option>
+          <option value="zh">Chinese</option><option value="ja">Japanese</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="lbl"><b>Processor</b><span>GPU (CUDA) is much faster when available.</span></div>
+        <select data-cfg="device">
+          <option value="auto">Automatic</option><option value="cuda">GPU (CUDA)</option>
+          <option value="cpu">CPU</option>
+        </select>
+      </div>
+    </div>
+
+    <h2>Behaviour</h2>
+    <div class="card">
+      <div class="row"><div class="lbl"><b>Remove filler words</b><span>Strip “um”, “uh”, “erm”.</span></div>
+        <label class="switch"><input type="checkbox" data-cfg="remove_fillers"><i></i></label></div>
+      <div class="row"><div class="lbl"><b>Sound effects</b><span>Beep when recording starts and stops.</span></div>
+        <label class="switch"><input type="checkbox" data-cfg="sounds"><i></i></label></div>
+      <div class="row"><div class="lbl"><b>Add space after text</b><span>So consecutive dictations don’t run together.</span></div>
+        <label class="switch"><input type="checkbox" data-cfg="add_trailing_space"><i></i></label></div>
+      <div class="row"><div class="lbl"><b>Restore clipboard</b><span>Put your previous clipboard back after pasting.</span></div>
+        <label class="switch"><input type="checkbox" data-cfg="restore_clipboard"><i></i></label></div>
+      <div class="row"><div class="lbl"><b>Launch at login</b><span>Start VoiceType in the tray when Windows starts.</span></div>
+        <label class="switch"><input type="checkbox" data-cfg="start_on_login"><i></i></label></div>
+      <div class="row"><div class="lbl"><b>Show this window on launch</b><span>Otherwise it starts in the tray.</span></div>
+        <label class="switch"><input type="checkbox" data-cfg="show_window_on_start"><i></i></label></div>
+    </div>
+
+    <h2>Data</h2>
+    <div class="card">
+      <div class="row"><div class="lbl"><b>Data folder</b><span id="data-dir"></span></div>
+        <button class="btn ghost" id="open-data">Open</button></div>
+      <div class="row"><div class="lbl"><b>Clear history</b><span>Permanently delete all saved transcripts.</span></div>
+        <button class="btn danger" id="clear-hist">Clear</button></div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+let api, cfg = {}, searchTimer;
+
+const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const ICON_DEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800);
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function keysHtml(combo) {
+  const names = {ctrl:'Ctrl', windows:'Win', alt:'Alt', shift:'Shift', space:'Space',
+                 'right ctrl':'Right Ctrl', 'left windows':'Win', 'right alt':'Right Alt'};
+  return (combo || '').split('+').map(k => `<kbd>${esc(names[k.trim()] || k.trim().toUpperCase())}</kbd>`).join(' + ');
+}
+
+/* navigation */
+$$('nav a').forEach(a => a.onclick = () => {
+  $$('nav a').forEach(x => x.classList.toggle('active', x === a));
+  $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + a.dataset.page));
+  if (a.dataset.page === 'settings') loadMics();
+});
+
+/* state */
+function setState(state, status) {
+  $('#dot').className = 'dot ' + state;
+  $('#status').textContent = status;
+  $('#mic').classList.toggle('recording', state === 'recording');
+}
+function renderStats(s) {
+  $('#s-week').textContent = s.week_words.toLocaleString();
+  $('#s-wpm').textContent = s.wpm;
+  $('#s-streak').textContent = s.streak;
+  $('#s-saved').textContent = s.minutes_saved >= 60 ? (s.minutes_saved/60).toFixed(1) + 'h' : s.minutes_saved + 'm';
+}
+function renderConfig() {
+  $('#hk-hint').innerHTML = keysHtml(cfg.hotkey);
+  $('#tg-hint').innerHTML = keysHtml(cfg.toggle_hotkey);
+  $('#hk-keys').innerHTML = keysHtml(cfg.hotkey);
+  $('#tg-keys').innerHTML = keysHtml(cfg.toggle_hotkey);
+  $$('[data-cfg]').forEach(el => {
+    const v = cfg[el.dataset.cfg];
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+  });
+  renderVocab(); renderRepl();
+}
+
+/* history */
+function dayLabel(d) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((today - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return d.toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
+}
+function itemHtml(r) {
+  const d = new Date(r.timestamp);
+  const app = r.app_window ? ' · ' + esc(r.app_window.length > 50 ? r.app_window.slice(0,50) + '…' : r.app_window) : '';
+  return `<div class="item" data-id="${r.id}">
+    <div class="time">${d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</div>
+    <div><div class="text selectable">${esc(r.final_text)}</div>
+      <div class="meta">${r.num_words} words · ${r.duration_sec}s · ${r.latency_sec}s to transcribe${app}</div></div>
+    <div class="actions">
+      <button class="icon-btn" title="Copy" data-copy>${ICON_COPY}</button>
+      <button class="icon-btn" title="Delete" data-del>${ICON_DEL}</button></div></div>`;
+}
+async function loadHistory() {
+  const rows = await api.get_history($('#search').value);
+  const box = $('#history');
+  if (!rows.length) {
+    box.innerHTML = `<div class="card empty">${$('#search').value ? 'No matches.' :
+      'Nothing yet. Hold your shortcut and say something.'}</div>`;
+    return;
+  }
+  let html = '', current = null;
+  for (const r of rows) {
+    const label = dayLabel(new Date(r.timestamp));
+    if (label !== current) {
+      if (current !== null) html += '</div>';
+      html += `<div class="day">${label}</div><div class="card">`;
+      current = label;
+    }
+    html += itemHtml(r);
+  }
+  box.innerHTML = html + '</div>';
+  window._rows = Object.fromEntries(rows.map(r => [r.id, r]));
+}
+$('#history').addEventListener('click', async e => {
+  const item = e.target.closest('.item'); if (!item) return;
+  const id = item.dataset.id;
+  if (e.target.closest('[data-copy]')) { await api.copy_text(window._rows[id].final_text); toast('Copied'); }
+  if (e.target.closest('[data-del]')) { renderStats(await api.delete_history(id)); loadHistory(); }
+});
+$('#search').oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadHistory, 200); };
+
+/* dictionary */
+function renderVocab() {
+  $('#vocab').innerHTML = (cfg.vocabulary || []).map((w, i) =>
+    `<span class="chip">${esc(w)}<button data-i="${i}" title="Remove">×</button></span>`).join('')
+    || '<span style="color:var(--muted)">No words yet.</span>';
+}
+$('#vocab').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const v = [...cfg.vocabulary]; v.splice(+b.dataset.i, 1); save({vocabulary: v});
+};
+$('#vocab-add').onclick = () => {
+  const w = $('#vocab-in').value.trim(); if (!w) return;
+  if (!(cfg.vocabulary || []).includes(w)) save({vocabulary: [...(cfg.vocabulary || []), w]});
+  $('#vocab-in').value = '';
+};
+$('#vocab-in').onkeydown = e => { if (e.key === 'Enter') $('#vocab-add').click(); };
+
+const showEsc = s => esc(s).replace(/\n/g, '\\n');
+function renderRepl() {
+  const entries = Object.entries(cfg.replacements || {});
+  $('#repl').innerHTML = entries.map(([k, v]) =>
+    `<tr><td>${esc(k)}</td><td class="arrow">→</td><td><code>${showEsc(v)}</code></td>
+     <td style="width:40px"><button class="icon-btn" data-k="${esc(k)}" title="Remove">${ICON_DEL}</button></td></tr>`).join('')
+    || '<tr><td colspan="4" style="color:var(--muted)">No replacements yet.</td></tr>';
+}
+$('#repl').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const r = {...cfg.replacements}; delete r[b.dataset.k]; save({replacements: r});
+};
+$('#repl-add').onclick = () => {
+  const k = $('#repl-from').value.trim().toLowerCase(), v = $('#repl-to').value.replace(/\\n/g, '\n');
+  if (!k || !v) return;
+  save({replacements: {...cfg.replacements, [k]: v}});
+  $('#repl-from').value = $('#repl-to').value = '';
+};
+
+/* settings */
+async function save(changes) {
+  cfg = await api.save_config(changes);
+  renderConfig(); toast('Saved');
+}
+$$('[data-cfg]').forEach(el => el.onchange = () => {
+  const k = el.dataset.cfg;
+  save({[k]: el.type === 'checkbox' ? el.checked : (el.value === '' ? null : el.value)});
+});
+async function loadMics() {
+  const mics = await api.list_mics();
+  const sel = $('#mic-select');
+  sel.innerHTML = '<option value="">System default</option>' +
+    mics.map(m => `<option value="${m.index}">${esc(m.name)}</option>`).join('');
+  sel.value = cfg.mic_device ?? '';
+}
+$('#mic-select').onchange = e => save({mic_device: e.target.value === '' ? null : +e.target.value});
+
+/* hotkey capture: press the new combo, released when the last key goes up */
+const KEYMAP = {Control:'ctrl', Meta:'windows', OS:'windows', Alt:'alt', Shift:'shift', ' ':'space'};
+$$('[data-capture]').forEach(btn => btn.onclick = () => {
+  const field = btn.dataset.capture, held = new Set(), combo = new Set();
+  btn.textContent = 'Press keys…'; btn.classList.add('capture');
+  const down = e => {
+    e.preventDefault();
+    if (e.key === 'Escape') return done(false);
+    let k = KEYMAP[e.key] || (e.code.startsWith('Key') ? e.code.slice(3).toLowerCase() :
+             e.code.startsWith('Digit') ? e.code.slice(5) : e.key.toLowerCase());
+    if (e.key === 'Control' && e.location === 2) k = 'right ctrl';
+    if (e.key === 'Alt' && e.location === 2) k = 'right alt';
+    held.add(k); combo.add(k);
+  };
+  const up = e => { e.preventDefault(); held.clear(); if (combo.size) done(true); };
+  function done(ok) {
+    removeEventListener('keydown', down, true); removeEventListener('keyup', up, true);
+    btn.textContent = 'Change'; btn.classList.remove('capture');
+    if (ok) {
+      const order = ['ctrl','right ctrl','alt','right alt','shift','windows'];
+      const keys = [...combo].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+      save({[field]: keys.join('+')});
+    }
+  }
+  addEventListener('keydown', down, true); addEventListener('keyup', up, true);
+});
+
+$('#open-data').onclick = () => api.open_data_folder();
+$('#clear-hist').onclick = async () => {
+  if (!$('#clear-hist').dataset.armed) {
+    $('#clear-hist').dataset.armed = 1; $('#clear-hist').textContent = 'Click again to confirm';
+    setTimeout(() => { delete $('#clear-hist').dataset.armed; $('#clear-hist').textContent = 'Clear'; }, 3000);
+    return;
+  }
+  renderStats(await api.clear_history()); loadHistory(); toast('History cleared');
+};
+$('#mic').onclick = () => api.toggle_dictation();
+
+/* events pushed from Python */
+window.onEngineEvent = async (event, data) => {
+  if (event === 'state') setState(data.state, data.status);
+  if (event === 'notice') toast(data);
+  if (event === 'config') { cfg = data; renderConfig(); }
+  if (event === 'transcript') {
+    renderStats(await api.get_stats());
+    await loadHistory();
+    const el = document.querySelector(`.item[data-id="${data.id}"]`);
+    if (el) el.classList.add('flash');
+  }
+};
+
+window.addEventListener('pywebviewready', async () => {
+  api = window.pywebview.api;
+  const s = await api.get_state();
+  cfg = s.config;
+  const h = new Date().getHours();
+  $('#greeting').textContent = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  $('#data-dir').textContent = s.data_dir;
+  setState(s.state, s.status); renderStats(s.stats); renderConfig(); loadHistory();
+});
+</script>
+</body>
+</html>
